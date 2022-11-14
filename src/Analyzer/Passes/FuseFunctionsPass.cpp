@@ -48,7 +48,7 @@ public:
             /// Do not apply for `count()` with without arguments or `count(*)`, only `count(x)` is supported.
             return;
 
-        mapping[QueryTreeNodeWithHash(argument_nodes[0])].push_back(&node);
+        mapping[QueryTreeNodeWithHash(argument_nodes[0])].insert(&node);
     }
 
     struct QueryTreeNodeWithHash
@@ -73,7 +73,7 @@ public:
     };
 
     /// argument -> list of sum/count/avg functions with this argument
-    std::unordered_map<QueryTreeNodeWithHash, std::vector<QueryTreeNodePtr *>, QueryTreeNodeWithHash::Hash> mapping;
+    std::unordered_map<QueryTreeNodeWithHash, std::unordered_set<QueryTreeNodePtr *>, QueryTreeNodeWithHash::Hash> mapping;
 
 private:
     std::unordered_set<String> names_to_collect;
@@ -147,7 +147,7 @@ void replaceWithSumCount(QueryTreeNodePtr & node, const FunctionNodePtr & sum_co
     }
 }
 
-FunctionNodePtr createFusedQuantilesNode(const std::vector<QueryTreeNodePtr *> nodes, const QueryTreeNodePtr & argument)
+FunctionNodePtr createFusedQuantilesNode(const std::unordered_set<QueryTreeNodePtr *> nodes, const QueryTreeNodePtr & argument)
 {
     Array parameters;
     parameters.reserve(nodes.size());
@@ -213,9 +213,11 @@ void tryFuseQuantiles(QueryTreeNodePtr query_tree_node, ContextPtr context)
                 quantiles_node->getResultType(), quantiles_node->getFunctionName());
         }
 
-        for (size_t i = 0; i < nodes.size(); ++i)
+        size_t array_index = 1;
+        for (auto * node : nodes)
         {
-            *nodes[i] = createArrayElementFunction(context, result_array_type->getNestedType(), quantiles_node, i + 1);
+            *node = createArrayElementFunction(context, result_array_type->getNestedType(), quantiles_node, array_index);
+            array_index += 1;
         }
     }
 }
