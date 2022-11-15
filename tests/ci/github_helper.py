@@ -209,4 +209,5 @@ class GitHub(github.Github):
 
     @retries.setter
     def retries(self, value: int) -> None:
+        assert isinstance(value, int)
         self._retries = value
