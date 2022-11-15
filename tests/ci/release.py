@@ -2,7 +2,7 @@
 
 
 from contextlib import contextmanager
-from typing import List, Optional
+from typing import Iterator, List, Literal, Optional
 import argparse
 import logging
 import subprocess
@@ -37,7 +37,7 @@ class Repo:
         return self._url
 
     @url.setter
-    def url(self, protocol: str):
+    def url(self, protocol: str) -> None:
         if protocol == "ssh":
             self._url = f"git@github.com:{self}.git"
         elif protocol == "https":
@@ -57,10 +57,16 @@ class Release:
     CMAKE_PATH = get_abs_path(FILE_WITH_VERSION_PATH)
     CONTRIBUTORS_PATH = get_abs_path(GENERATED_CONTRIBUTORS)
 
-    def __init__(self, repo: Repo, release_commit: str, release_type: str):
+    def __init__(
+        self,
+        repo: Repo,
+        release_commit: str,
+        release_type: Literal["major", "minor", "patch"],
+    ):
         self.repo = repo
         self._release_commit = ""
         self.release_commit = release_commit
+        assert release_type in self.BIG + self.SMALL
         self.release_type = release_type
         self._git = git
         self._version = get_version_from_repo(git=self._git)
@@ -108,7 +114,9 @@ class Release:
             )
             raise
 
-    def do(self, check_dirty: bool, check_branch: bool, with_release_branch: bool):
+    def do(
+        self, check_dirty: bool, check_branch: bool, with_release_branch: bool
+    ) -> None:
         self.check_prerequisites()
 
         if check_dirty:
@@ -265,7 +273,7 @@ class Release:
         return self._version
 
     @version.setter
-    def version(self, version: ClickHouseVersion):
+    def version(self, version: ClickHouseVersion) -> None:
         if not isinstance(version, ClickHouseVersion):
             raise ValueError(f"version must be ClickHouseVersion, not {type(version)}")
         self._version = version
@@ -275,7 +283,7 @@ class Release:
         return self._release_branch
 
     @release_branch.setter
-    def release_branch(self, branch: str):
+    def release_branch(self, branch: str) -> None:
         self._release_branch = release_branch(branch)
 
     @property
@@ -283,7 +291,7 @@ class Release:
         return self._release_commit
 
     @release_commit.setter
-    def release_commit(self, release_commit: str):
+    def release_commit(self, release_commit: str) -> None:
         self._release_commit = commit(release_commit)
 
     @contextmanager
@@ -322,7 +330,7 @@ class Release:
                     yield
 
     @contextmanager
-    def _bump_testing_version(self, helper_branch: str):
+    def _bump_testing_version(self, helper_branch: str) -> Iterator[None]:
         self.read_version()
         self.version = self.version.update(self.release_type)
         self.version.with_description(VersionType.TESTING)
@@ -342,7 +350,7 @@ class Release:
             yield
 
     @contextmanager
-    def _checkout(self, ref: str, with_checkout_back: bool = False):
+    def _checkout(self, ref: str, with_checkout_back: bool = False) -> Iterator[None]:
         orig_ref = self._git.branch or self._git.sha
         need_rollback = False
         if ref not in (self._git.branch, self._git.sha):
@@ -361,7 +369,7 @@ class Release:
                 self.run(rollback_cmd)
 
     @contextmanager
-    def _create_branch(self, name: str, start_point: str = ""):
+    def _create_branch(self, name: str, start_point: str = "") -> Iterator[None]:
         self.run(f"git branch {name} {start_point}")
         rollback_cmd = f"git branch -D {name}"
         self._rollback_stack.append(rollback_cmd)
@@ -373,7 +381,7 @@ class Release:
             raise
 
     @contextmanager
-    def _create_gh_label(self, label: str, color_hex: str):
+    def _create_gh_label(self, label: str, color_hex: str) -> Iterator[None]:
         # API call, https://docs.github.com/en/rest/reference/issues#create-a-label
         self.run(
             f"gh api repos/{self.repo}/labels -f name={label} -f color={color_hex}"
@@ -388,7 +396,7 @@ class Release:
             raise
 
     @contextmanager
-    def _create_gh_release(self, as_prerelease: bool):
+    def _create_gh_release(self, as_prerelease: bool) -> Iterator[None]:
         with self._create_tag():
             # Preserve tag if version is changed
             tag = self.version.describe
@@ -423,7 +431,9 @@ class Release:
             raise
 
     @contextmanager
-    def _push(self, ref: str, with_rollback_on_fail: bool = True, remote_ref: str = ""):
+    def _push(
+        self, ref: str, with_rollback_on_fail: bool = True, remote_ref: str = ""
+    ) -> Iterator[None]:
         if remote_ref == "":
             remote_ref = ref
 
