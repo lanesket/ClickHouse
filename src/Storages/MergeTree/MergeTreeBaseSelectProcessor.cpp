@@ -60,7 +60,7 @@ MergeTreeBaseSelectProcessor::MergeTreeBaseSelectProcessor(
     {
         if (*it == "_part_offset")
         {
-            non_const_virtual_column_names.emplace_back(*it);
+//            non_const_virtual_column_names.emplace_back(*it);
         }
         else if (*it == LightweightDeleteDescription::FILTER_COLUMN.name)
         {
@@ -73,6 +73,8 @@ MergeTreeBaseSelectProcessor::MergeTreeBaseSelectProcessor(
                 header_without_virtual_columns.erase(*it);
         }
     }
+
+//    std::cerr << "PREWHERE actions:\n" << (prewhere_actions ? prewhere_actions->dump() : std::string()) << "\n\n\n";
 }
 
 
